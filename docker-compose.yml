@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mr_system
+      POSTGRES_USER: mr_app
+      POSTGRES_PASSWORD: mr_app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mr_app -d mr_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  backend:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/mr_system
+      DB_USERNAME: mr_app
+      DB_PASSWORD: mr_app
+      MAIL_HOST: mailhog
+      JWT_SECRET: change-this-production-secret-change-this-production-secret
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    environment:
+      REACT_APP_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
